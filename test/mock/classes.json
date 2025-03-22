@@ -1,0 +1,8 @@
+{
+    "nationalities": ["german", "greek", "vietnamese", "indonesian", "columbian", "mexican", "italian", "japanese", "egyptian", "nigerian"],
+    "nationalityGroups": {
+        "european": ["german", "greek", "italian"],
+        "asian": ["indonesian", "vietnamese", "japanese"],
+        "southAmerican": ["columbian", "mexican"]
+    }
+}

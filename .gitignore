@@ -1,0 +1,8 @@
+.coverage
+.env
+.pytest_cache/
+**/__pycache__/
+.fuse_*
+.vscode/
+dev_data/*
+!dev_data/.gitkeep

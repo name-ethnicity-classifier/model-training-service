@@ -1,0 +1,26 @@
+import os
+import sqlalchemy
+from sqlalchemy import create_engine
+
+
+def create_db_connection() -> sqlalchemy.Connection:
+    db_host = os.environ.get("POSTGRES_HOST")
+    db_port = os.environ.get("POSTGRES_PORT")
+    db_name = os.environ.get("POSTGRES_DB")
+    db_user = os.environ.get("POSTGRES_USER")
+    db_password = os.environ.get("POSTGRES_PASSWORD")
+
+    db_uri = f"postgresql://{db_host}:{db_port}/{db_name}?user={db_user}&password={db_password}"
+
+    pg_engine = create_engine(db_uri, echo=True)
+    connection = pg_engine.connect()
+
+    return connection
+
+
+def main():
+    db_connection = create_db_connection()
+    response = db_connection.execute("FROM model SELECT nationalities, id WHERE is_trained = false")
+
+    # TODO
+    return
