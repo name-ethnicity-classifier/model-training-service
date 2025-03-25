@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 import pytest
 import json
@@ -6,11 +7,11 @@ from preprocessing import preprocess_nationalities, preprocess_groups, normalize
 
 
 def load_raw_dataset():
-    with open("./tests/mock_data/raw_dataset.json", "rb") as o:
+    with open(f"./test/mock/raw_dataset.json", "rb") as o:
         return json.load(o)
 
 def load_classes():
-    with open("./tests/mock_data/classes.json", "r") as f:
+    with open(f"./test/mock/classes.json", "r") as f:
         return json.load(f)
 
 def load_mock_dataset():

@@ -5,14 +5,13 @@ import re
 import string
 import pickle
 import unicodedata
-from typing import NewType
 from dotenv import load_dotenv
-from utils import s3_upload
+from schemas import UntrainedModel, ProcessedName
+from s3 import S3Handler
 
 
 load_dotenv()
 
-ProcessedName = NewType("ProcessedName", list[int, list[int]])
 
 letter_vocabular = string.ascii_lowercase + " " + "-"
 
@@ -160,23 +159,18 @@ def preprocess_groups(classes: list[str]) -> list[ProcessedName]:
 
 
 
-def create_dataset(model_id: str, classes: list[str], is_group_level: bool):
-    classes = list(set(classes))
-    if is_group_level:
+def create_dataset(model: UntrainedModel):
+    classes = list(set(model.classes))
+    if model.is_grouped:
         dataset = preprocess_groups(classes)
     else:
         dataset = preprocess_nationalities(classes)
 
-    s3_upload(
+    S3Handler.upload(
         bucket_name=os.getenv("MODEL_S3_BUCKET"),
         body=pickle.dumps(dataset),
-        object_key=f"{model_id}/dataset.pickle"
+        object_key=f"{model.id}/dataset.pickle"
     )
 
+    return dataset
 
-if __name__ == "__main__":
-    #d = create_dataset("f43t543g34g34", ["latvian", "taiwanese"], False)
-    #print(d)
-
-    d = create_dataset("test", ["european", "african", "else"], True)
-    print(d)

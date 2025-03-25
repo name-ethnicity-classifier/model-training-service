@@ -19,8 +19,7 @@ class ConvLSTM(nn.Module):
 
         self.embedder = nn.Embedding(29, self.embedding_size)
 
-        self.conv1 = nn.Sequential(nn.Conv1d(self.embedding_size, self.cnn_out_dim, kernel_size=self.kernel_size),
-                                   nn.ReLU())
+        self.conv1 = nn.Sequential(nn.Conv1d(self.embedding_size, self.cnn_out_dim, kernel_size=self.kernel_size), nn.ReLU())
         
         self.lstm = nn.LSTM(input_size=self.cnn_out_dim, hidden_size=self.hidden_size, num_layers=self.layers, batch_first=True)
         

@@ -1,26 +1,51 @@
 import os
 import sqlalchemy
-from sqlalchemy import create_engine
+from db import create_db_connection
+from schemas import UntrainedModel
+from errors import error_handler
+from preprocessing import create_dataset
+from s3 import S3Handler
+from train import TrainSetup
 
 
-def create_db_connection() -> sqlalchemy.Connection:
-    db_host = os.environ.get("POSTGRES_HOST")
-    db_port = os.environ.get("POSTGRES_PORT")
-    db_name = os.environ.get("POSTGRES_DB")
-    db_user = os.environ.get("POSTGRES_USER")
-    db_password = os.environ.get("POSTGRES_PASSWORD")
+def get_untrained_models(db_connection: sqlalchemy.Connection):
+    untrained_models_query = sqlalchemy.text("SELECT id, nationalities, is_grouped FROM model WHERE is_trained = FALSE;")
+    rows = db_connection.execute(untrained_models_query)
 
-    db_uri = f"postgresql://{db_host}:{db_port}/{db_name}?user={db_user}&password={db_password}"
-
-    pg_engine = create_engine(db_uri, echo=True)
-    connection = pg_engine.connect()
-
-    return connection
+    return rows
 
 
+def run_model_pipeline(untrained_model: UntrainedModel):
+    processed_dataset = S3Handler.get(os.environ.get("MODEL_S3_BUCKET"), f"{untrained_model.id}/dataset.pickle")
+
+    if not processed_dataset:
+        processed_dataset = create_dataset(untrained_model)
+
+    train_setup = TrainSetup(model_config_file=os.environ.get("MODEL_CONFIG_NAME"))
+    train_setup.train()
+    train_setup.test()
+    train_setup.save()
+
+    print(untrained_model.id, untrained_model.classes, untrained_model.is_grouped)
+
+    return 0
+
+
+@error_handler
 def main():
     db_connection = create_db_connection()
-    response = db_connection.execute("FROM model SELECT nationalities, id WHERE is_trained = false")
+    
+    rows = get_untrained_models(db_connection)
 
-    # TODO
-    return
+    for row in rows:
+        run_model_pipeline(UntrainedModel(
+            row[0],
+            row[1],
+            row[2]
+        ))
+
+    return 0
+
+
+if __name__ == "__main__":
+    main()

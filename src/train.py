@@ -1,18 +1,12 @@
-
-from tqdm import tqdm
 import numpy as np
-import os
-import json
 import sklearn.metrics
-import shutil
-
 import torch
 import torch.utils.data
 import torch.nn as nn
-
-from src.model import ConvLSTM as Model
-from src.utils import create_dataloader, show_progress, device, lr_scheduler, write_json
-import src.experiment_manager as xman
+from log_manager import Dataset, EpochMetrics, BaseMetrics, LogManager
+from model import ConvLSTM as Model
+from utils import create_dataloader, device, lr_scheduler, load_json
+from schemas import ProcessedName
 
 
 torch.manual_seed(0)
@@ -20,57 +14,51 @@ np.random.seed(0)
 
 
 class TrainSetup:
-    def __init__(self, model_config: dict):
-        self.model_config = model_config
-        self.model_name = model_config["model-name"]
+    def __init__(self, model_id: str, base_model_name: str, classes: list[str], dataset: list[ProcessedName]):
+        self.model_id = model_id
+        self.base_model_name = base_model_name
+        self.model_config = load_json(f"model_configs/{base_model_name}.json")
 
-        self.log_path = f"./logs/{self.model_name}"
-        self.output_path = f"./outputs/{self.model_name}"
+        self.dataset = dataset
+        self.test_size = self.model_config["test-size"]
+        self.classes = classes
+        self.total_classes = len(classes)
 
-        self.model_file = f"{self.log_path}/model.pt"
+        self.epochs = self.model_config["epochs"]
+        self.batch_size = self.model_config["batch-size"]
+        self.hidden_size = self.model_config["hidden-size"]
+        self.rnn_layers = self.model_config["rnn-layers"]
+        self.dropout_chance = self.model_config["dropout-chance"]
+        self.embedding_size = self.model_config["embedding-size"]
+        self.augmentation = self.model_config["augmentation"]
+        self.weight_decay = self.model_config["weight-decay"]
+        self.lr = self.model_config["lr-schedule"][0]
+        self.lr_decay_rate = self.model_config["lr-schedule"][1]
+        self.lr_decay_intervall = self.model_config["lr-schedule"][2]
 
-        # dataset parameters
-        self.dataset_folder = f"./datasets/preprocessed_datasets/{model_config['dataset-name']}"
-        self.dataset_path = f"{self.dataset_folder}/dataset.pickle"
-        self.test_size = model_config["test-size"]
+        self.kernel_size = self.model_config["kernel-size"][0]
+        self.cnn_out_dim = self.model_config["cnn-out-dim"][1]
 
-        with open(f"{self.dataset_folder}/nationalities.json", "r") as f: 
-            self.classes = json.load(f) 
-            self.total_classes = len(self.classes)
-
-        # hyperparameters
-        self.epochs = model_config["epochs"]
-        self.batch_size = model_config["batch-size"]
-        self.hidden_size = model_config["hidden-size"]
-        self.rnn_layers = model_config["rnn-layers"]
-        self.dropout_chance = model_config["dropout-chance"]
-        self.embedding_size = model_config["embedding-size"]
-        self.augmentation = model_config["augmentation"]
-
-        # unpack learning-rate parameters (idx 0: current lr, idx 1: decay rate, idx 2: decay intervall in iterations)
-        self.lr = model_config["lr-schedule"][0]
-        self.lr_decay_rate = model_config["lr-schedule"][1]
-        self.lr_decay_intervall = model_config["lr-schedule"][2]
-
-        # unpack cnn parameters (idx 0: amount of layers, idx 1: kernel size, idx 2: list of feature map dimensions)
-        self.kernel_size = model_config["cnn-parameters"][0]
-        self.cnn_out_dim = model_config["cnn-parameters"][1]
-
-        # dataloaders for train, test and validation
-        self.train_set, self.validation_set, self.test_set = create_dataloader(dataset_path=self.dataset_path, test_size=self.test_size, val_size=self.test_size, \
-                                                                               batch_size=self.batch_size, class_amount=self.total_classes, augmentation=self.augmentation)
-
-        # resume training boolean
-        self.continue_ = model_config["resume"]
-
-        # initialize xman experiment manager
-        self.xmanager = xman.ExperimentManager(log_path=self.log_path, continue_=self.continue_)
-        self.xmanager.init(
-            optimizer="Adam", 
-            loss_function="NLLLoss", 
-            learning_rate=self.lr, 
-            custom_parameters=model_config
+        self.train_set, self.validation_set, self.test_set = create_dataloader(
+            dataset=self.dataset,
+            test_size=self.test_size,
+            val_size=self.test_size,
+            batch_size=self.batch_size,
+            class_amount=self.total_classes,
+            augmentation=self.augmentation
         )
+
+        self.model = Model(
+            class_amount=self.total_classes,
+            hidden_size=self.hidden_size,
+            layers=self.rnn_layers,
+            dropout_chance=self.dropout_chance,
+            embedding_size=self.embedding_size,
+            kernel_size=self.kernel_size,
+            cnn_out_dim=self.cnn_out_dim
+        ).to(device=device)
+
+        self.logger = LogManager(model_id, base_model_name, classes)
 
     def _validate(self, model, dataset):
         validation_dataset = dataset
@@ -79,7 +67,7 @@ class TrainSetup:
         losses = []
         total_targets, total_predictions = [], []
 
-        for names, targets, _ in tqdm(validation_dataset, desc="validating", ncols=100):
+        for names, targets, _ in validation_dataset:
             names = names.to(device=device)
             targets = targets.to(device=device)
 
@@ -99,40 +87,27 @@ class TrainSetup:
         loss = np.mean(losses)
 
         accuracy = 100 * sklearn.metrics.accuracy_score(total_targets, total_predictions)
+        f1_scores = sklearn.metrics.f1_score(total_targets, total_predictions, average=None)
         precision_scores = sklearn.metrics.precision_score(total_targets, total_predictions, average=None)
         recall_scores = sklearn.metrics.recall_score(total_targets, total_predictions, average=None)
-        f1_scores = sklearn.metrics.f1_score(total_targets, total_predictions, average=None)
     	
-        return loss, accuracy, (precision_scores, recall_scores, f1_scores)
+        return loss, accuracy, (f1_scores, precision_scores, recall_scores)
 
     def train(self):
-        model = Model(
-            class_amount=self.total_classes,
-            hidden_size=self.hidden_size,
-            layers=self.rnn_layers,
-            dropout_chance=self.dropout_chance,
-            embedding_size=self.embedding_size,
-            kernel_size=self.kernel_size,
-            cnn_out_dim=self.cnn_out_dim
-        ).to(device=device)
-
-        if self.continue_:
-            model.load_state_dict(torch.load(self.model_file))
-
         criterion = nn.NLLLoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.lr, weight_decay=1e-5)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
         iterations = 0
         for epoch in range(1, (self.epochs + 1)):
 
             total_train_targets, total_train_predictions = [], []
             epoch_train_loss = []
-            for names, targets, _ in tqdm(self.train_set, desc="epoch", ncols=100):
+            for names, targets, _ in self.train_set:
                 optimizer.zero_grad()
 
                 names = names.to(device=device)
                 targets = targets.to(device=device)
-                predictions = model.train()(names)
+                predictions = self.model.train()(names)
 
                 loss = criterion(predictions, targets.squeeze())
                 loss.backward()
@@ -142,7 +117,7 @@ class TrainSetup:
 
                 epoch_train_loss.append(loss.item())
 
-                validated_predictions = model.eval()(names)
+                validated_predictions = self.model.eval()(names)
                 for i in range(validated_predictions.size()[0]): 
                     total_train_targets.append(targets[i].cpu().detach().numpy()[0])
                     validated_prediction = validated_predictions[i].cpu().detach().numpy()
@@ -150,55 +125,33 @@ class TrainSetup:
                 
                 iterations += 1
 
-                # lr decay
                 if iterations % self.lr_decay_intervall == 0:
                     optimizer.param_groups[0]["lr"] = optimizer.param_groups[0]["lr"] * self.lr_decay_rate
 
             epoch_train_loss = np.mean(epoch_train_loss)
             epoch_train_accuracy = 100 * sklearn.metrics.accuracy_score(total_train_targets, total_train_predictions)
-            epoch_val_loss, epoch_val_accuracy, _scores = self._validate(model, self.validation_set)
+            epoch_val_loss, epoch_val_accuracy, epoch_val_scores = self._validate(self.model, self.validation_set)
 
-            show_progress(self.epochs, epoch, epoch_train_loss, epoch_train_accuracy, epoch_val_loss, epoch_val_accuracy)
+            self.logger.save_epoch(EpochMetrics(
+                accuracy=epoch_train_accuracy, f1=None, precision=None, recall=None, loss=epoch_train_loss
+            ), Dataset.TRAIN)
 
-    def test(self):
-        model = Model(
-            class_amount=self.total_classes,
-            hidden_size=self.hidden_size,
-            layers=self.rnn_layers,
-            dropout_chance=0.0,
-            embedding_size=self.embedding_size,
-            kernel_size=self.kernel_size,
-            cnn_out_dim=self.cnn_out_dim
-        ).to(device=device)
+            self.logger.save_epoch(EpochMetrics(
+                accuracy=epoch_val_accuracy, f1=epoch_val_scores[0], precision=epoch_val_scores[1], recall=epoch_val_scores[2], loss=epoch_val_loss
+            ), Dataset.VALIDATION)
 
-        model.load_state_dict(torch.load(self.model_file))
-        _, accuracy, scores = self._validate(model, self.test_set)
+            self.logger.log_epoch(epoch)
         
-        precisions, recalls, f1_scores = scores
-        print("\n\ntest accuracy:", accuracy)
-        print("precision of every class:", precisions)
-        print("recall of every class:", recalls)
-        print("f1-score of every class:", f1_scores)
+    def test(self):
+        _, accuracy, scores = self._validate(self.model, self.test_set)
+        
+        self.logger.save_test_evaluation(BaseMetrics(
+            accuracy=accuracy, f1=scores[0], precision=[1], recall=[2]
+        ))
 
-        self.save_model_configuration(accuracy, [precisions, recalls, f1_scores])
+        print(accuracy, scores)
      
-    def save_model_configuration(self, accuracy: float, scores: list):
-        # TODO save to S3
-
-        if os.path.exists(self.output_path):
-            print("\nError: The directory '{}' does already exist! Reinitializing.\n".format(self.output_path))
-            shutil.rmtree(self.output_path)
-
-        os.mkdir(self.output_path)
-        write_json(f"{self.output_path}/results.json", 
-            {
-                "accuracy": accuracy,
-                "precision-scores": scores[0],
-                "recall-scores": scores[1],
-                "f1-scores": scores[2]
-            }
-        )
-        write_json(f"{self.output_path}/config.json", self.model_config)
-
-        shutil.copyfile(f"{self.log_path}/model.pt", f"{self.output_path}/model.pt")
-        shutil.copyfile(f"{self.dataset_folder}/nationalities.json", f"{self.output_path}/nationalities.json")
+    def save(self):
+        # TODO
+        return
+        
