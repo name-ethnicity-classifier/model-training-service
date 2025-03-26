@@ -2,6 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 import os
+from config import config
 
 
 class S3Handler:
@@ -17,9 +18,9 @@ class S3Handler:
         load_dotenv()
         self._client = boto3.client(
             "s3",
-            aws_access_key_id=os.environ.get("MINIO_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.environ.get("MINIO_SECRET_ACCESS_KEY"),
-            endpoint_url=f"{os.environ.get('MINIO_HOST')}:{os.environ.get('MINIO_PORT')}"
+            aws_access_key_id=config.minio_user,
+            aws_secret_access_key=config.minio_password,
+            endpoint_url=f"{config.minio_host}:{config.minio_port}"
         )
 
     @classmethod

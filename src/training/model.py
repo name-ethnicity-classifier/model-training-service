@@ -1,8 +1,10 @@
 
 import torch
 import torch.nn as nn
+from training.train_utils import device
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+torch.manual_seed(0)
 
 
 class ConvLSTM(nn.Module):

@@ -21,7 +21,7 @@ class Dataset(Enum):
     VALIDATION = "validation"
 
 
-class LogManager:
+class TrainLogger:
     def __init__(self, model_id: str, base_model: str, classes: list[str]):
         self.logs = {
             "model-id": model_id,

@@ -1,11 +1,13 @@
-import os
+import pickle
 import sqlalchemy
 from db import create_db_connection
 from schemas import UntrainedModel
 from errors import error_handler
 from preprocessing import create_dataset
 from s3 import S3Handler
-from train import TrainSetup
+from config import config
+from training.train import TrainSetup
+from schemas import ProcessedName
 
 
 def get_untrained_models(db_connection: sqlalchemy.Connection):
@@ -15,13 +17,24 @@ def get_untrained_models(db_connection: sqlalchemy.Connection):
     return rows
 
 
+def get_dataset(untrained_model: UntrainedModel) -> list[ProcessedName]:
+    processed_dataset = S3Handler.get(config.model_bucket, f"{untrained_model.id}/dataset.pickle")
+
+    if processed_dataset:
+        return pickle.loads(processed_dataset)
+
+    return create_dataset(untrained_model)
+
+
 def run_model_pipeline(untrained_model: UntrainedModel):
-    processed_dataset = S3Handler.get(os.environ.get("MODEL_S3_BUCKET"), f"{untrained_model.id}/dataset.pickle")
+    processed_dataset = get_dataset(untrained_model)
 
-    if not processed_dataset:
-        processed_dataset = create_dataset(untrained_model)
-
-    train_setup = TrainSetup(model_config_file=os.environ.get("MODEL_CONFIG_NAME"))
+    train_setup = TrainSetup(
+        model_id=untrained_model.id,
+        base_model_name=config.base_model,
+        classes=untrained_model.classes,
+        dataset=processed_dataset
+    )
     train_setup.train()
     train_setup.test()
     train_setup.save()

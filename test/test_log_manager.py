@@ -1,5 +1,5 @@
 import pytest
-from log_manager import LogManager, EpochMetrics, BaseMetrics, Dataset
+from training.train_logger import LogManager, EpochMetrics, BaseMetrics, Dataset
 
 
 @pytest.fixture

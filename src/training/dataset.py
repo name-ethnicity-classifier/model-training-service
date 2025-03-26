@@ -35,8 +35,6 @@ class NameEthnicityDataset(torch.utils.data.Dataset):
         :return list: ie. int_representation = 2 -> [0, 0, 1, ..., 0]
         """
 
-        int_representation -= 1
-
         if one_hot:
             one_hot_target = np.zeros((self.class_amount))
             one_hot_target[int_representation] = 1

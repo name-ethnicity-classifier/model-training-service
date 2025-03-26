@@ -8,6 +8,7 @@ import unicodedata
 from dotenv import load_dotenv
 from schemas import UntrainedModel, ProcessedName
 from s3 import S3Handler
+from config import config, Environment
 
 
 load_dotenv()
@@ -17,11 +18,17 @@ letter_vocabular = string.ascii_lowercase + " " + "-"
 
 
 def load_dataset() -> dict:
-    with open("./dev_data/raw_dataset.pickle", "rb") as o:
+    environmet = os.getenv("ENVIRONMENT")
+
+    with open("./dev-data/raw_dataset.pickle", "rb") as o:
         raw_dataset = pickle.load(o)
 
-    with open("./dev_data/nationalities.json", "r") as f:
+    with open("./dev-data/nationalities.json", "r") as f:
         all_nationalities = json.load(f)
+
+    # shorten dataset to speed up during development
+    if config.environment == Environment.DEV:
+        raw_dataset = {k: v[:1000] for k, v in raw_dataset.items()}
 
     return raw_dataset, all_nationalities
 

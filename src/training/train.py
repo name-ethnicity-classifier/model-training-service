@@ -3,9 +3,9 @@ import sklearn.metrics
 import torch
 import torch.utils.data
 import torch.nn as nn
-from log_manager import Dataset, EpochMetrics, BaseMetrics, LogManager
-from model import ConvLSTM as Model
-from utils import create_dataloader, device, lr_scheduler, load_json
+from training.train_logger import Dataset, EpochMetrics, BaseMetrics, TrainLogger
+from training.model import ConvLSTM as Model
+from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config
 from schemas import ProcessedName
 
 
@@ -17,7 +17,7 @@ class TrainSetup:
     def __init__(self, model_id: str, base_model_name: str, classes: list[str], dataset: list[ProcessedName]):
         self.model_id = model_id
         self.base_model_name = base_model_name
-        self.model_config = load_json(f"model_configs/{base_model_name}.json")
+        self.model_config = load_model_config(base_model_name)
 
         self.dataset = dataset
         self.test_size = self.model_config["test-size"]
@@ -36,8 +36,8 @@ class TrainSetup:
         self.lr_decay_rate = self.model_config["lr-schedule"][1]
         self.lr_decay_intervall = self.model_config["lr-schedule"][2]
 
-        self.kernel_size = self.model_config["kernel-size"][0]
-        self.cnn_out_dim = self.model_config["cnn-out-dim"][1]
+        self.kernel_size = self.model_config["kernel-size"]
+        self.cnn_out_dim = self.model_config["cnn-out-dim"]
 
         self.train_set, self.validation_set, self.test_set = create_dataloader(
             dataset=self.dataset,
@@ -58,7 +58,7 @@ class TrainSetup:
             cnn_out_dim=self.cnn_out_dim
         ).to(device=device)
 
-        self.logger = LogManager(model_id, base_model_name, classes)
+        self.train_logger = TrainLogger(model_id, base_model_name, classes)
 
     def _validate(self, model, dataset):
         validation_dataset = dataset
@@ -132,20 +132,20 @@ class TrainSetup:
             epoch_train_accuracy = 100 * sklearn.metrics.accuracy_score(total_train_targets, total_train_predictions)
             epoch_val_loss, epoch_val_accuracy, epoch_val_scores = self._validate(self.model, self.validation_set)
 
-            self.logger.save_epoch(EpochMetrics(
+            self.train_logger.save_epoch(EpochMetrics(
                 accuracy=epoch_train_accuracy, f1=None, precision=None, recall=None, loss=epoch_train_loss
             ), Dataset.TRAIN)
 
-            self.logger.save_epoch(EpochMetrics(
+            self.train_logger.save_epoch(EpochMetrics(
                 accuracy=epoch_val_accuracy, f1=epoch_val_scores[0], precision=epoch_val_scores[1], recall=epoch_val_scores[2], loss=epoch_val_loss
             ), Dataset.VALIDATION)
 
-            self.logger.log_epoch(epoch)
+            self.train_logger.log_epoch(epoch)
         
     def test(self):
         _, accuracy, scores = self._validate(self.model, self.test_set)
         
-        self.logger.save_test_evaluation(BaseMetrics(
+        self.train_logger.save_test_evaluation(BaseMetrics(
             accuracy=accuracy, f1=scores[0], precision=[1], recall=[2]
         ))
 
