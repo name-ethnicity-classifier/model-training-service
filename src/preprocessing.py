@@ -173,11 +173,5 @@ def create_dataset(model: UntrainedModel):
     else:
         dataset = preprocess_nationalities(classes)
 
-    S3Handler.upload(
-        bucket_name=os.getenv("MODEL_S3_BUCKET"),
-        body=pickle.dumps(dataset),
-        object_key=f"{model.id}/dataset.pickle"
-    )
-
     return dataset
 

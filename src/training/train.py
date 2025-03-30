@@ -3,7 +3,7 @@ import sklearn.metrics
 import torch
 import torch.utils.data
 import torch.nn as nn
-from training.train_logger import Dataset, EpochMetrics, BaseMetrics, TrainLogger
+from training.train_logger import Dataset, Metrics, Scores, TrainLogger
 from training.model import ConvLSTM as Model
 from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config
 from schemas import ProcessedName
@@ -58,7 +58,7 @@ class TrainSetup:
             cnn_out_dim=self.cnn_out_dim
         ).to(device=device)
 
-        self.train_logger = TrainLogger(model_id, base_model_name, classes)
+        self.train_logger = TrainLogger()
 
     def _validate(self, model, dataset):
         validation_dataset = dataset
@@ -91,7 +91,7 @@ class TrainSetup:
         precision_scores = sklearn.metrics.precision_score(total_targets, total_predictions, average=None)
         recall_scores = sklearn.metrics.recall_score(total_targets, total_predictions, average=None)
     	
-        return loss, accuracy, (f1_scores, precision_scores, recall_scores)
+        return Metrics(accuracy, loss, Scores=(f1_scores, precision_scores, recall_scores))
 
     def train(self):
         criterion = nn.NLLLoss()
@@ -130,28 +130,24 @@ class TrainSetup:
 
             epoch_train_loss = np.mean(epoch_train_loss)
             epoch_train_accuracy = 100 * sklearn.metrics.accuracy_score(total_train_targets, total_train_predictions)
-            epoch_val_loss, epoch_val_accuracy, epoch_val_scores = self._validate(self.model, self.validation_set)
+            epoch_val_metrics = self._validate(self.model, self.validation_set)
 
-            self.train_logger.save_epoch(EpochMetrics(
-                accuracy=epoch_train_accuracy, f1=None, precision=None, recall=None, loss=epoch_train_loss
+            self.train_logger.save_epoch(Metrics(
+                accuracy=epoch_train_accuracy,
+                loss=epoch_train_loss,
+                scores=None
             ), Dataset.TRAIN)
-
-            self.train_logger.save_epoch(EpochMetrics(
-                accuracy=epoch_val_accuracy, f1=epoch_val_scores[0], precision=epoch_val_scores[1], recall=epoch_val_scores[2], loss=epoch_val_loss
-            ), Dataset.VALIDATION)
-
-            self.train_logger.log_epoch(epoch)
+            self.train_logger.save_epoch(epoch_val_metrics, Dataset.VALIDATION)
+            self.train_logger.log_epoch(epoch - 1)
         
     def test(self):
-        _, accuracy, scores = self._validate(self.model, self.test_set)
-        
-        self.train_logger.save_test_evaluation(BaseMetrics(
-            accuracy=accuracy, f1=scores[0], precision=[1], recall=[2]
-        ))
+        result_metrics = self._validate(self.model, self.test_set)
+        self.train_logger.save_test_evaluation(result_metrics)
 
-        print(accuracy, scores)
-     
-    def save(self):
-        # TODO
-        return
-        
+    def get_logs(self) -> dict:
+        return self.train_logger.to_dict()
+
+    def get_results(self) -> tuple[Metrics, dict]:
+        return self.train_logger.results, self.model.state_dict()
+    
+
