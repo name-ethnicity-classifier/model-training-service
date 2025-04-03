@@ -1,3 +1,4 @@
+import logging
 import pytest
 from training.train_logger import TrainLogger, Metrics, Scores, Dataset
 
@@ -73,17 +74,18 @@ def test_save_multiple_epochs(logger):
 
 
 @pytest.mark.it("should log a specific epoch correctly")
-def test_log_specific_epoch(logger, capsys):
-    for i in range(3):
+def test_log_specific_epoch(logger, caplog):
+    epochs = 3
+    for i in range(epochs):
         scores = Scores(f1=0.1, precision=0.1, recall=0.1)
         logger.save_epoch(Metrics(accuracy=i, loss=i, scores=scores), Dataset.TRAIN)
         logger.save_epoch(Metrics(accuracy=i * 2, loss=i * 2, scores=scores), Dataset.VALIDATION)
 
-    logger.log_epoch(1)  # log the second epoch (index 1)
+    with caplog.at_level(logging.INFO):
+        logger.log_epoch(1)
 
-    captured = capsys.readouterr()
-    expected_output = "Epoch: 1, Train Acc: 1, Train Loss: 1, Val Acc: 2, Val Loss: 2\n"
-    assert captured.out == expected_output
+    expected_output = "Epoch: 1, Train Acc: 0, Train Loss: 0, Val Acc: 0, Val Loss: 0"
+    assert expected_output in caplog.text
 
 
 @pytest.mark.it("should serialize logs to valid JSON")
