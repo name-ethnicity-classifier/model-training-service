@@ -1,10 +1,10 @@
 import numpy as np
-import os
 import torch
 import torch.utils.data
 from torch.nn.utils.rnn import pad_sequence
 import json
 import random
+import sklearn.metrics
 from training.dataset import NameEthnicityDataset
 from schemas import ProcessedName
 from s3 import S3Handler
@@ -100,13 +100,20 @@ def lr_scheduler(optimizer: torch.optim, current_iteration: int=0, warmup_iterat
         pass
 
 
+def calculate_metrics(targets: list, predictions: list):
+    accuracy = 100 * sklearn.metrics.accuracy_score(targets, predictions)
+    f1_scores = sklearn.metrics.f1_score(targets, predictions, average=None, zero_division=0).tolist()
+    precision_scores = sklearn.metrics.precision_score(targets, predictions, average=None, zero_division=0).tolist()
+    recall_scores = sklearn.metrics.recall_score(targets, predictions, average=None, zero_division=0).tolist()
+
+    return accuracy, f1_scores, precision_scores, recall_scores
+
+
 def load_model_config(model_config_name: str) -> dict:
     model_config_path = f"model-configs/{model_config_name}.json"
-    if config.environment == Environment.DEV:
-        return load_json(f"dev-data/{model_config_path}")
-    
-    return S3Handler.get(config.base_data_bucket, model_config_path)
+    model_config_bytes = S3Handler.get(config.base_data_bucket, model_config_path)
 
+    return json.loads(model_config_bytes)
 
 def load_json(file_path: str) -> dict:
     with open(file_path, "r") as f:

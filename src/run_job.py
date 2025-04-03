@@ -12,18 +12,24 @@ from s3 import S3Handler
 from config import config
 from training.train import TrainSetup
 from schemas import ProcessedName
+from logger import logger
 
 
 def get_untrained_models(db_connection: sqlalchemy.Connection):
     untrained_models_query = sqlalchemy.text("SELECT id, nationalities, is_grouped FROM model WHERE is_trained = FALSE;")
-    rows = db_connection.execute(untrained_models_query)
+    rows = db_connection.execute(untrained_models_query).all()
+    
+    logger.info(f"{len(rows)} untrained model(s) fetched.")
 
     return rows
 
 
 def update_trained_model(db_connection: sqlalchemy.Connection, model_id: str, accuracy: float, scores: list[float]):
-    update_trained_model_query = sqlalchemy.text(f"INSERT INTO model (accuracy, scores, is_trained) VALUES = ('{accuracy}', '{scores}', true) WHERE id = {model_id};")
-    db_connection.execute(update_trained_model_query)
+    update_trained_model_query = sqlalchemy.text("UPDATE model SET accuracy = :accuracy, scores = :scores, is_trained = true WHERE id = :id")
+    db_connection.execute(update_trained_model_query, {"accuracy": accuracy, "scores": scores, "id": model_id})
+    db_connection.commit()
+
+    logger.info(f"Updated DB entry for trained model with id {model_id}.")
 
 
 def save_dataset(dataset: list[ProcessedName], model_id: str):
@@ -51,6 +57,8 @@ def save_model(train_results: dict, model_state_dict, model_id: str):
         object_key=f"{model_id}/model.pt"
     )
 
+    logger.info(f"Model and train results saved to S3.")
+
 
 def get_dataset(untrained_model: UntrainedModel) -> list[ProcessedName]:
     processed_dataset = S3Handler.get(config.model_bucket, f"{untrained_model.id}/dataset.pickle")
@@ -65,6 +73,8 @@ def run_model_pipeline(untrained_model: UntrainedModel) -> tuple[float, list[flo
     processed_dataset = get_dataset(untrained_model)
     save_dataset(processed_dataset, untrained_model.id)
 
+    logger.info(f"Dataset created with classes {untrained_model.classes}.")
+
     train_setup = TrainSetup(
         model_id=untrained_model.id,
         base_model_name=config.base_model,
@@ -75,22 +85,31 @@ def run_model_pipeline(untrained_model: UntrainedModel) -> tuple[float, list[flo
     train_setup.test()
     result_metrics, model_state_dict = train_setup.get_results()
 
-    save_model(train_setup.get_logs(), model_state_dict)
+    save_model(train_setup.get_logs(), model_state_dict, untrained_model.id)
 
     return result_metrics.accuracy, result_metrics.scores.f1
 
 
 @error_handler
 def main():
+    logger.info("Model-training service envoked.")
     db_connection = create_db_connection()
     
     untrained_model_rows = get_untrained_models(db_connection)
 
-    for row in untrained_model_rows:
+    if not untrained_model_rows or len(untrained_model_rows) == 0:
+        logger.info(f"No models to train. Exiting.")
+        return
+
+    for idx, row in enumerate(untrained_model_rows):
+        logger.info("")
+        logger.info(f"Running pipeline for model with id {row[0]} {idx + 1}/{len(untrained_model_rows)}.")
+
         untrained_model = UntrainedModel(id=row[0], classes=row[1], is_grouped=row[2])
         accuracy, f1_scores = run_model_pipeline(untrained_model)
         update_trained_model(db_connection, untrained_model.id, accuracy, f1_scores)
 
+    logger.info("Model-training service exiting.")
 
 if __name__ == "__main__":
     main()

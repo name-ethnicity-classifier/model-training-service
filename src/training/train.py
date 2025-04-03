@@ -5,13 +5,16 @@ import torch.utils.data
 import torch.nn as nn
 from training.train_logger import Dataset, Metrics, Scores, TrainLogger
 from training.model import ConvLSTM as Model
-from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config
+from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config, calculate_metrics
 from schemas import ProcessedName
+from logger import logger
 
 
 torch.manual_seed(0)
 np.random.seed(0)
 
+
+torch.set_warn_always(False)
 
 class TrainSetup:
     def __init__(self, model_id: str, base_model_name: str, classes: list[str], dataset: list[ProcessedName]):
@@ -85,15 +88,14 @@ class TrainSetup:
                 total_predictions.append(prediction_index)
 
         loss = np.mean(losses)
-
-        accuracy = 100 * sklearn.metrics.accuracy_score(total_targets, total_predictions)
-        f1_scores = sklearn.metrics.f1_score(total_targets, total_predictions, average=None)
-        precision_scores = sklearn.metrics.precision_score(total_targets, total_predictions, average=None)
-        recall_scores = sklearn.metrics.recall_score(total_targets, total_predictions, average=None)
+        accuracy, f1_scores, precision_scores, recall_scores = calculate_metrics(total_targets, total_predictions)
     	
-        return Metrics(accuracy, loss, Scores=(f1_scores, precision_scores, recall_scores))
+        return Metrics(accuracy, loss, scores=Scores(f1_scores, precision_scores, recall_scores))
 
     def train(self):
+        logger.info(f"Training model with id {self.model_id}.")
+        logger.info("")
+        
         criterion = nn.NLLLoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
@@ -138,11 +140,16 @@ class TrainSetup:
                 scores=None
             ), Dataset.TRAIN)
             self.train_logger.save_epoch(epoch_val_metrics, Dataset.VALIDATION)
-            self.train_logger.log_epoch(epoch - 1)
+            self.train_logger.log_epoch(epoch)
+        
+        logger.info("")
+        logger.info(f"Training finished.")
         
     def test(self):
         result_metrics = self._validate(self.model, self.test_set)
         self.train_logger.save_test_evaluation(result_metrics)
+
+        logger.info(f"Evaluated model with id {self.model_id}.")
 
     def get_logs(self) -> dict:
         return self.train_logger.to_dict()

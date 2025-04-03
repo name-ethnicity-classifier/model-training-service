@@ -4,5 +4,5 @@
 **/__pycache__/
 .fuse_*
 .vscode/
-dev-data/*
-!dev-data/.gitkeep
+infrastructure/base-data/*
+!infrastructure/base-data/.gitkeep

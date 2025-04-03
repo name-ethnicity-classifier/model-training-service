@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
-
+from logger import logger
 
 class Dataset(Enum):
     TRAIN = "train"
@@ -34,10 +34,10 @@ class TrainLogger:
     results: Optional[Metrics] = None
 
     def log_epoch(self, epoch: int):
-        epoch_train_metrics = self.train_history.train[epoch]
-        epoch_val_metrics = self.train_history.validation[epoch]
+        epoch_train_metrics = self.train_history.train[epoch - 1]
+        epoch_val_metrics = self.train_history.validation[epoch - 1]
 
-        print(f"Epoch: {epoch}, Train Acc: {epoch_train_metrics.accuracy}, "
+        logger.info(f"Epoch: {epoch}, Train Acc: {epoch_train_metrics.accuracy}, "
               f"Train Loss: {epoch_train_metrics.loss}, Val Acc: {epoch_val_metrics.accuracy}, "
               f"Val Loss: {epoch_val_metrics.loss}")
 
