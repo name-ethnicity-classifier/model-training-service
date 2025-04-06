@@ -29,7 +29,6 @@ CREATE TABLE "user" (
 );
 
 
-
 CREATE TABLE user_to_model (
     user_id             INTEGER            NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     model_id            VARCHAR(40)        NOT NULL REFERENCES "model"(id) ON DELETE CASCADE,
@@ -49,3 +48,4 @@ CREATE TABLE user_quota (
 
 
 ALTER TABLE model OWNER TO postgres;
+

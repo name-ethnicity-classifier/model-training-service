@@ -111,9 +111,8 @@ def calculate_metrics(targets: list, predictions: list):
 
 def load_model_config(model_config_name: str) -> dict:
     model_config_path = f"model-configs/{model_config_name}.json"
-    model_config_bytes = S3Handler.get(config.base_data_bucket, model_config_path)
+    return S3Handler.get(config.base_data_bucket, model_config_path)
 
-    return json.loads(model_config_bytes)
 
 def load_json(file_path: str) -> dict:
     with open(file_path, "r") as f:

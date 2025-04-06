@@ -2,24 +2,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 from logger import logger
+from schemas import Metrics, Scores
+
 
 class Dataset(Enum):
     TRAIN = "train"
     VALIDATION = "validation"
-
-
-@dataclass
-class Scores:
-    f1: float
-    precision: float
-    recall: float
-
-
-@dataclass
-class Metrics:
-    accuracy: float
-    loss: Optional[float] = None
-    scores: Optional[Scores] = None
 
 
 @dataclass

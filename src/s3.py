@@ -1,7 +1,8 @@
 import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
-import os
+import json
+import pickle
 from config import config
 
 
@@ -39,7 +40,13 @@ class S3Handler:
     def get(cls, bucket_name: str, object_key: str):    
         try:
             response = cls.instance()._client.get_object(Bucket=bucket_name, Key=object_key)
-            return response["Body"].read()
+            body = response["Body"].read()
+            
+            if object_key.endswith(".json"):
+                return json.loads(body)
+            elif object_key.endswith(".pickle"):
+                return pickle.loads(body)
+            return body
         except ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
                 return None
@@ -50,6 +57,17 @@ class S3Handler:
         try:
             cls.instance()._client.head_object(Bucket=bucket_name, Key=object_key)
             return True
-        except ClientError:
+        except Exception:
             return False
+        
+    @classmethod
+    def clear_bucket(cls, bucket_name: str):
+        client = cls.instance()._client
+
+        objects_to_delete = client.list_objects_v2(Bucket=bucket_name)
+
+        if "Contents" in objects_to_delete:
+            delete_objects = [{"Key": obj["Key"]} for obj in objects_to_delete["Contents"]]
+            client.delete_objects(Bucket=bucket_name, Delete={"Objects": delete_objects})
+
 

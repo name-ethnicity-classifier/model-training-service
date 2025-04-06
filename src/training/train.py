@@ -3,10 +3,10 @@ import sklearn.metrics
 import torch
 import torch.utils.data
 import torch.nn as nn
-from training.train_logger import Dataset, Metrics, Scores, TrainLogger
+from training.train_logger import Dataset, TrainLogger
 from training.model import ConvLSTM as Model
 from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config, calculate_metrics
-from schemas import ProcessedName
+from schemas import ProcessedName, Metrics, Scores
 from logger import logger
 
 
@@ -90,7 +90,7 @@ class TrainSetup:
         loss = np.mean(losses)
         accuracy, f1_scores, precision_scores, recall_scores = calculate_metrics(total_targets, total_predictions)
     	
-        return Metrics(accuracy, loss, scores=Scores(f1_scores, precision_scores, recall_scores))
+        return Metrics(round(accuracy, 2), loss, scores=Scores(f1_scores, precision_scores, recall_scores))
 
     def train(self):
         logger.info(f"Training model with id {self.model_id}.")
@@ -135,7 +135,7 @@ class TrainSetup:
             epoch_val_metrics = self._validate(self.model, self.validation_set)
 
             self.train_logger.save_epoch(Metrics(
-                accuracy=epoch_train_accuracy,
+                accuracy=round(epoch_train_accuracy, 2),
                 loss=epoch_train_loss,
                 scores=None
             ), Dataset.TRAIN)

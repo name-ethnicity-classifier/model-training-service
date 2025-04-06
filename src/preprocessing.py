@@ -18,15 +18,13 @@ letter_vocabular = string.ascii_lowercase + " " + "-"
 
 
 def load_dataset() -> dict:
-    raw_dataset_bytes = S3Handler.get(config.base_data_bucket, "raw_dataset.pickle")
-    raw_dataset = pickle.loads(raw_dataset_bytes)
+    raw_dataset = S3Handler.get(config.base_data_bucket, "raw_dataset.pickle")
 
     # shorten dataset to speed up during development
     if config.environment == Environment.DEV:
         raw_dataset = {k: v[:1000] for k, v in raw_dataset.items()}
 
-    nationalities_bytes = S3Handler.get(config.base_data_bucket, "nationalities.json")
-    nationalities = json.loads(nationalities_bytes)
+    nationalities = S3Handler.get(config.base_data_bucket, "nationalities.json")
 
     return raw_dataset, nationalities
 

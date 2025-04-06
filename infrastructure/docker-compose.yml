@@ -3,7 +3,6 @@ version: '3.7'
 services:
   minio:
     image: minio/minio:latest
-    container_name: minio
     ports:
       - "${MINIO_PORT}:9000"
       - "${MINIO_UI_PORT}:9001"

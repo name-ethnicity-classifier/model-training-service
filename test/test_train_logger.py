@@ -1,6 +1,7 @@
 import logging
 import pytest
-from training.train_logger import TrainLogger, Metrics, Scores, Dataset
+from training.train_logger import TrainLogger, Dataset
+from schemas import Metrics, Scores
 
 
 @pytest.fixture

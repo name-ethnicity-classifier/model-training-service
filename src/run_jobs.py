@@ -60,17 +60,8 @@ def save_model(train_results: dict, model_state_dict, model_id: str):
     logger.info(f"Model and train results saved to S3.")
 
 
-def get_dataset(untrained_model: UntrainedModel) -> list[ProcessedName]:
-    processed_dataset = S3Handler.get(config.model_bucket, f"{untrained_model.id}/dataset.pickle")
-
-    if processed_dataset:
-        return pickle.loads(processed_dataset)
-
-    return create_dataset(untrained_model)
-
-
 def run_model_pipeline(untrained_model: UntrainedModel) -> tuple[float, list[float]]:
-    processed_dataset = get_dataset(untrained_model)
+    processed_dataset = create_dataset(untrained_model)
     save_dataset(processed_dataset, untrained_model.id)
 
     logger.info(f"Dataset created with classes {untrained_model.classes}.")
@@ -110,6 +101,7 @@ def main():
         update_trained_model(db_connection, untrained_model.id, accuracy, f1_scores)
 
     logger.info("Model-training service exiting.")
+
 
 if __name__ == "__main__":
     main()
