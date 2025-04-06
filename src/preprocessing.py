@@ -6,8 +6,8 @@ import string
 import pickle
 import unicodedata
 from dotenv import load_dotenv
-from schemas import UntrainedModel, ProcessedName
 from s3 import S3Handler
+from schemas import UntrainedModel, ProcessedName
 from config import config, Environment
 
 
@@ -18,19 +18,15 @@ letter_vocabular = string.ascii_lowercase + " " + "-"
 
 
 def load_dataset() -> dict:
-    environmet = os.getenv("ENVIRONMENT")
-
-    with open("./dev-data/raw_dataset.pickle", "rb") as o:
-        raw_dataset = pickle.load(o)
-
-    with open("./dev-data/nationalities.json", "r") as f:
-        all_nationalities = json.load(f)
+    raw_dataset = S3Handler.get(config.base_data_bucket, "raw_dataset.pickle")
 
     # shorten dataset to speed up during development
     if config.environment == Environment.DEV:
         raw_dataset = {k: v[:1000] for k, v in raw_dataset.items()}
 
-    return raw_dataset, all_nationalities
+    nationalities = S3Handler.get(config.base_data_bucket, "nationalities.json")
+
+    return raw_dataset, nationalities
 
 
 def remove_name_prefix(name: str) -> str:
@@ -172,12 +168,6 @@ def create_dataset(model: UntrainedModel):
         dataset = preprocess_groups(classes)
     else:
         dataset = preprocess_nationalities(classes)
-
-    S3Handler.upload(
-        bucket_name=os.getenv("MODEL_S3_BUCKET"),
-        body=pickle.dumps(dataset),
-        object_key=f"{model.id}/dataset.pickle"
-    )
 
     return dataset
 

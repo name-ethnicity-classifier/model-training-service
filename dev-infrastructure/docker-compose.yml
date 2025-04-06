@@ -3,7 +3,6 @@ version: '3.7'
 services:
   minio:
     image: minio/minio:latest
-    container_name: minio
     ports:
       - "${MINIO_PORT}:9000"
       - "${MINIO_UI_PORT}:9001"
@@ -25,6 +24,7 @@ services:
       MINIO_PASSWORD: ${MINIO_PASSWORD}
     entrypoint: ["/bin/sh", "/minio-init.sh"]
     volumes:
+      - ./base-data:/base-data
       - ./minio-init.sh:/minio-init.sh
 
   dev_database:
@@ -34,7 +34,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db-seed/init.sql:/docker-entrypoint-initdb.d/00-init.sql
+      - ./db-seed/dummy_models.sql:/docker-entrypoint-initdb.d/10-dummy_models.sql
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
 

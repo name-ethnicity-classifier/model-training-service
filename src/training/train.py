@@ -3,15 +3,18 @@ import sklearn.metrics
 import torch
 import torch.utils.data
 import torch.nn as nn
-from training.train_logger import Dataset, EpochMetrics, BaseMetrics, TrainLogger
+from training.train_logger import Dataset, TrainLogger
 from training.model import ConvLSTM as Model
-from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config
-from schemas import ProcessedName
+from training.train_utils import create_dataloader, device, lr_scheduler, load_model_config, calculate_metrics
+from schemas import ProcessedName, Metrics, Scores
+from logger import logger
 
 
 torch.manual_seed(0)
 np.random.seed(0)
 
+
+torch.set_warn_always(False)
 
 class TrainSetup:
     def __init__(self, model_id: str, base_model_name: str, classes: list[str], dataset: list[ProcessedName]):
@@ -58,7 +61,7 @@ class TrainSetup:
             cnn_out_dim=self.cnn_out_dim
         ).to(device=device)
 
-        self.train_logger = TrainLogger(model_id, base_model_name, classes)
+        self.train_logger = TrainLogger()
 
     def _validate(self, model, dataset):
         validation_dataset = dataset
@@ -67,7 +70,7 @@ class TrainSetup:
         losses = []
         total_targets, total_predictions = [], []
 
-        for names, targets, _ in validation_dataset:
+        for names, targets in validation_dataset:
             names = names.to(device=device)
             targets = targets.to(device=device)
 
@@ -85,15 +88,14 @@ class TrainSetup:
                 total_predictions.append(prediction_index)
 
         loss = np.mean(losses)
-
-        accuracy = 100 * sklearn.metrics.accuracy_score(total_targets, total_predictions)
-        f1_scores = sklearn.metrics.f1_score(total_targets, total_predictions, average=None)
-        precision_scores = sklearn.metrics.precision_score(total_targets, total_predictions, average=None)
-        recall_scores = sklearn.metrics.recall_score(total_targets, total_predictions, average=None)
+        accuracy, f1_scores, precision_scores, recall_scores = calculate_metrics(total_targets, total_predictions)
     	
-        return loss, accuracy, (f1_scores, precision_scores, recall_scores)
+        return Metrics(round(accuracy, 2), loss, scores=Scores(f1_scores, precision_scores, recall_scores))
 
     def train(self):
+        logger.info(f"Training model with id {self.model_id}.")
+        logger.info("")
+        
         criterion = nn.NLLLoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
@@ -102,7 +104,7 @@ class TrainSetup:
 
             total_train_targets, total_train_predictions = [], []
             epoch_train_loss = []
-            for names, targets, _ in self.train_set:
+            for names, targets in self.train_set:
                 optimizer.zero_grad()
 
                 names = names.to(device=device)
@@ -130,28 +132,29 @@ class TrainSetup:
 
             epoch_train_loss = np.mean(epoch_train_loss)
             epoch_train_accuracy = 100 * sklearn.metrics.accuracy_score(total_train_targets, total_train_predictions)
-            epoch_val_loss, epoch_val_accuracy, epoch_val_scores = self._validate(self.model, self.validation_set)
+            epoch_val_metrics = self._validate(self.model, self.validation_set)
 
-            self.train_logger.save_epoch(EpochMetrics(
-                accuracy=epoch_train_accuracy, f1=None, precision=None, recall=None, loss=epoch_train_loss
+            self.train_logger.save_epoch(Metrics(
+                accuracy=round(epoch_train_accuracy, 2),
+                loss=epoch_train_loss,
+                scores=None
             ), Dataset.TRAIN)
-
-            self.train_logger.save_epoch(EpochMetrics(
-                accuracy=epoch_val_accuracy, f1=epoch_val_scores[0], precision=epoch_val_scores[1], recall=epoch_val_scores[2], loss=epoch_val_loss
-            ), Dataset.VALIDATION)
-
+            self.train_logger.save_epoch(epoch_val_metrics, Dataset.VALIDATION)
             self.train_logger.log_epoch(epoch)
         
+        logger.info("")
+        logger.info(f"Training finished.")
+        
     def test(self):
-        _, accuracy, scores = self._validate(self.model, self.test_set)
-        
-        self.train_logger.save_test_evaluation(BaseMetrics(
-            accuracy=accuracy, f1=scores[0], precision=[1], recall=[2]
-        ))
+        result_metrics = self._validate(self.model, self.test_set)
+        self.train_logger.save_test_evaluation(result_metrics)
 
-        print(accuracy, scores)
-     
-    def save(self):
-        # TODO
-        return
-        
+        logger.info(f"Evaluated model with id {self.model_id}.")
+
+    def get_logs(self) -> dict:
+        return self.train_logger.to_dict()
+
+    def get_results(self) -> tuple[Metrics, dict]:
+        return self.train_logger.results, self.model.state_dict()
+    
+

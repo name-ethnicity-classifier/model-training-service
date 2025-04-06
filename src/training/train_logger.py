@@ -1,19 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-import json
-
-
-@dataclass
-class BaseMetrics:
-    accuracy: float
-    f1: float
-    precision: float
-    recall: float
-
-
-@dataclass
-class EpochMetrics(BaseMetrics):
-    loss: float
+from typing import Optional
+from logger import logger
+from schemas import Metrics, Scores
 
 
 class Dataset(Enum):
@@ -21,50 +10,35 @@ class Dataset(Enum):
     VALIDATION = "validation"
 
 
-class TrainLogger:
-    def __init__(self, model_id: str, base_model: str, classes: list[str]):
-        self.logs = {
-            "model-id": model_id,
-            "base-model": base_model,
-            "classes": classes,
-            "train-history": {
-                "train": [],
-                "validation": []
-            },
-            "results": None
-        }
+@dataclass
+class TrainHistory:
+    train: list[Metrics] = field(default_factory=list)
+    validation: list[Metrics] = field(default_factory=list)
 
-    def _create_single_log(self, metrics: BaseMetrics | EpochMetrics):
-        return {
-            "accuracy": metrics.accuracy,
-            "scores": {
-                "f1": metrics.f1,
-                "precision": metrics.precision,
-                "recall": metrics.recall
-            },
-            "loss": metrics.loss if isinstance(metrics, EpochMetrics) else None
-        }
+
+@dataclass
+class TrainLogger:
+    train_history: TrainHistory = field(default_factory=TrainHistory)
+    results: Optional[Metrics] = None
 
     def log_epoch(self, epoch: int):
-        epoch_train_metrics = self.logs["train-history"]["train"][epoch]
-        epoch_val_metrics = self.logs["train-history"]["validation"][epoch]
+        epoch_train_metrics = self.train_history.train[epoch - 1]
+        epoch_val_metrics = self.train_history.validation[epoch - 1]
 
-        train_acc = epoch_train_metrics["accuracy"]
-        train_loss = epoch_train_metrics["loss"]
-        val_acc = epoch_val_metrics["accuracy"]
-        val_loss = epoch_val_metrics["loss"]
+        logger.info(f"Epoch: {epoch}, Train Acc: {epoch_train_metrics.accuracy}, "
+              f"Train Loss: {epoch_train_metrics.loss}, Val Acc: {epoch_val_metrics.accuracy}, "
+              f"Val Loss: {epoch_val_metrics.loss}")
 
-        print(f"epoch: {epoch}, train-acc: {train_acc}, train-loss: {train_loss}, val-acc: {val_acc}, val-loss: {val_loss}")
+    def save_epoch(self, metrics: Metrics, dataset: Dataset):
+        if dataset == Dataset.TRAIN:
+            self.train_history.train.append(metrics)
+        else:
+            self.train_history.validation.append(metrics)
 
-    def save_epoch(self, metrics: EpochMetrics, dataset: Dataset):
-        epoch_log = self._create_single_log(metrics)
-        self.logs["train-history"][dataset.value].append(epoch_log)
+    def save_test_evaluation(self, metrics: Metrics):
+        metrics.loss = None
+        self.results = metrics
 
-    def save_test_evaluation(self, metrics: BaseMetrics):
-        test_results = self._create_single_log(metrics)
-        del test_results["loss"]
-
-        self.logs["results"] = test_results
-
-    def json_serialize(self):
-        return json.dumps(self.logs)
+    def to_dict(self) -> dict:
+        from dataclasses import asdict
+        return asdict(self)

@@ -1,10 +1,10 @@
 import numpy as np
-import os
 import torch
 import torch.utils.data
 from torch.nn.utils.rnn import pad_sequence
 import json
 import random
+import sklearn.metrics
 from training.dataset import NameEthnicityDataset
 from schemas import ProcessedName
 from s3 import S3Handler
@@ -25,19 +25,16 @@ def custom_collate(batch):
     :return torch.Tensor: padded sample-batch, target-batch, non-padded sample-batch
     """
 
-    sample_batch, target_batch, non_padded_batch = [], [], []
-    for sample, target, non_padded_sample in batch:
-
+    sample_batch, target_batch = [], []
+    for sample, target in batch:
         sample_batch.append(sample)
         target_batch.append(target)
-
-        non_padded_batch.append(non_padded_sample)
 
     padded_batch = pad_sequence(sample_batch, batch_first=True)
     padded_to = list(padded_batch.size())[1]
     padded_batch = padded_batch.reshape(len(sample_batch), padded_to, 1)
 
-    return padded_batch, torch.cat(target_batch, dim=0).reshape(len(sample_batch), target_batch[0].size(0)), non_padded_batch
+    return padded_batch, torch.cat(target_batch, dim=0).reshape(len(sample_batch), target_batch[0].size(0))
 
 
 def create_dataloader(dataset: list[ProcessedName], test_size: float=0.01, val_size: float=0.01, batch_size: int=32, class_amount: int=10, augmentation: float=0.0):
@@ -100,11 +97,17 @@ def lr_scheduler(optimizer: torch.optim, current_iteration: int=0, warmup_iterat
         pass
 
 
+def calculate_metrics(targets: list, predictions: list):
+    accuracy = 100 * sklearn.metrics.accuracy_score(targets, predictions)
+    f1_scores = sklearn.metrics.f1_score(targets, predictions, average=None, zero_division=0).tolist()
+    precision_scores = sklearn.metrics.precision_score(targets, predictions, average=None, zero_division=0).tolist()
+    recall_scores = sklearn.metrics.recall_score(targets, predictions, average=None, zero_division=0).tolist()
+
+    return accuracy, f1_scores, precision_scores, recall_scores
+
+
 def load_model_config(model_config_name: str) -> dict:
     model_config_path = f"model-configs/{model_config_name}.json"
-    if config.environment == Environment.DEV:
-        return load_json(f"dev-data/{model_config_path}")
-    
     return S3Handler.get(config.base_data_bucket, model_config_path)
 
 

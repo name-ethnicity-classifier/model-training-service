@@ -1,19 +1,5 @@
-
 import torch
 import numpy as np
-import string
-
-
-def char_indices_to_string(char_indices: list=[str]) -> str:
-    alphabet = list(string.ascii_lowercase.strip()) + [" ", "-"]
-    name = ""
-    for idx in char_indices:
-        if int(idx) == 0:
-            pass
-        else:
-            name += alphabet[int(idx) - 1]
-    
-    return name
 
 
 class NameEthnicityDataset(torch.utils.data.Dataset):
@@ -43,37 +29,12 @@ class NameEthnicityDataset(torch.utils.data.Dataset):
         else:
             return [int_representation]
 
-    def _name_switch(self, org_name: list, class_: int, chance: float=0.3) -> list:
-        """ Switches first and last name part of the name with a random name of the same nationality """
+    def _name_switch(self, name: list, class_: int, chance: float=0.3) -> list:
+        """ Switches first and last name part of the name with a random name of the same nationality
+            TODO: Has to be reimplemented
+        """
 
-        augmentation_choice = np.random.uniform(0.0, 1.0)
-        if augmentation_choice <= chance:
-
-            same_nat_name = []
-            for idx, sample in enumerate(self.seperate_dataset):
-                if class_ == sample[0]:
-                    same_nat_name = [e+1 for e in sample[1]]
-                
-                # some names have only one part for some reason, so don't break the same-nationality search when such appear
-                if 27 in same_nat_name:
-                    self.seperate_dataset.pop(idx)
-                    break
-            
-            org_prename, org_surname = self._split_name(org_name)
-            same_nat_prename, same_nat_surname = self._split_name(same_nat_name)
-
-            flip_case = np.random.choice([0, 1])
-
-            if flip_case == 0:
-                #print(char_indices_to_string(org_name), " | ", char_indices_to_string(same_nat_name), " | ", char_indices_to_string(org_prename + [27] + same_nat_surname))
-                return org_prename + [27] + same_nat_surname
-
-            elif flip_case == 1:
-                #print(char_indices_to_string(org_name), " | ", char_indices_to_string(same_nat_name), " | ", char_indices_to_string(same_nat_prename + [27] + org_surname))
-                return same_nat_prename + [27] + org_surname
-
-        else:
-            return org_name
+        return name
 
     def _split_name(self, int_name: list) -> list:
         try:
@@ -100,10 +61,7 @@ class NameEthnicityDataset(torch.utils.data.Dataset):
         if augmentation_chance > 0.0:
             int_name = self._name_switch(int_name, target, chance=augmentation_chance)
         
-        # non_padded_batch is the original batch, which is not getting padded so it can be converted back to string
-        non_padded_sample = [e + 1 for e in sample]
-
-        return torch.Tensor(int_name), torch.Tensor(target).type(torch.LongTensor), non_padded_sample
+        return torch.Tensor(int_name), torch.Tensor(target).type(torch.LongTensor)
 
     def __len__(self):       
         return len(self.dataset)

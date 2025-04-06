@@ -7,7 +7,7 @@ done
 
 echo "Connected to MinIO!"
 
-BUCKETS="models"
+BUCKETS="models base-data"
 
 for BUCKET in $BUCKETS; do
   if ! mc ls minio_instance/$BUCKET > /dev/null 2>&1; then
@@ -17,5 +17,8 @@ for BUCKET in $BUCKETS; do
     echo "Bucket $BUCKET already exists."
   fi
 done
+
+echo "Syncing ./base-data/ to minio_instance/base-data/"
+mc mirror --overwrite --exclude ".gitkeep" ./base-data/ minio_instance/base-data/
 
 echo "Bucket creation completed."
