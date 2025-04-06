@@ -15,7 +15,7 @@ def db_connection():
     connection = create_db_connection()
     yield connection
     connection.close()
-    
+
     
 @pytest.fixture
 def db_session(db_connection):
@@ -33,7 +33,7 @@ def init_empty_database(db_connection):
     metadata.reflect(bind=db_connection)
     metadata.drop_all(bind=db_connection)
 
-    with open("test/test_init.sql", "r") as f:
+    with open("dev-infrastructure/db-seed/init.sql", "r") as f:
         sql_commands = f.read()
         for statement in sql_commands.split(";"):
             if statement.strip():
@@ -59,7 +59,7 @@ def mock_base_model_config():
 
 @pytest.fixture
 def db_scenario(db_session, request):
-    with open(f"test/model_scenarios/{request.param}", "r") as f:
+    with open(f"test/model-scenarios/{request.param}", "r") as f:
         sql_commands = f.read()
         for statement in sql_commands.split(";"):
             if statement.strip():
@@ -91,8 +91,8 @@ def test_run_jobs(db_session, db_scenario):
         expected_s3_files = [f"{model_id}/logs.json", f"{model_id}/model.pt", f"{model_id}/dataset.pickle"]
         for expected_file in expected_s3_files:
             assert S3Handler.get(config.model_bucket, expected_file)
-            
-            
+
+     
 @pytest.mark.it("should not do anything when there are no untrained models")
 @pytest.mark.parametrize("db_scenario", ["one_trained_model.sql"], indirect=True)
 def test_run_no_jobs(db_session, db_scenario, caplog):

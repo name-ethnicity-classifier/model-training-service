@@ -70,7 +70,7 @@ class TrainSetup:
         losses = []
         total_targets, total_predictions = [], []
 
-        for names, targets, _ in validation_dataset:
+        for names, targets in validation_dataset:
             names = names.to(device=device)
             targets = targets.to(device=device)
 
@@ -104,7 +104,7 @@ class TrainSetup:
 
             total_train_targets, total_train_predictions = [], []
             epoch_train_loss = []
-            for names, targets, _ in self.train_set:
+            for names, targets in self.train_set:
                 optimizer.zero_grad()
 
                 names = names.to(device=device)

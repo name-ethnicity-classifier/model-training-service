@@ -48,4 +48,3 @@ CREATE TABLE user_quota (
 
 
 ALTER TABLE model OWNER TO postgres;
-

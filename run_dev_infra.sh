@@ -1,5 +1,5 @@
 
-docker_compose_path="./infrastructure/docker-compose.yml"
+docker_compose_path="./dev-infrastructure/docker-compose.yml"
 
 
 if [ "$1" = "--init" ]; then

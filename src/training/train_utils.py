@@ -25,19 +25,16 @@ def custom_collate(batch):
     :return torch.Tensor: padded sample-batch, target-batch, non-padded sample-batch
     """
 
-    sample_batch, target_batch, non_padded_batch = [], [], []
-    for sample, target, non_padded_sample in batch:
-
+    sample_batch, target_batch = [], []
+    for sample, target in batch:
         sample_batch.append(sample)
         target_batch.append(target)
-
-        non_padded_batch.append(non_padded_sample)
 
     padded_batch = pad_sequence(sample_batch, batch_first=True)
     padded_to = list(padded_batch.size())[1]
     padded_batch = padded_batch.reshape(len(sample_batch), padded_to, 1)
 
-    return padded_batch, torch.cat(target_batch, dim=0).reshape(len(sample_batch), target_batch[0].size(0)), non_padded_batch
+    return padded_batch, torch.cat(target_batch, dim=0).reshape(len(sample_batch), target_batch[0].size(0))
 
 
 def create_dataloader(dataset: list[ProcessedName], test_size: float=0.01, val_size: float=0.01, batch_size: int=32, class_amount: int=10, augmentation: float=0.0):

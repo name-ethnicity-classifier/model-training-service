@@ -19,6 +19,6 @@ for BUCKET in $BUCKETS; do
 done
 
 echo "Syncing ./base-data/ to minio_instance/base-data/"
-mc mirror --overwrite ./base-data/ minio_instance/base-data/
+mc mirror --overwrite --exclude ".gitkeep" ./base-data/ minio_instance/base-data/
 
 echo "Bucket creation completed."

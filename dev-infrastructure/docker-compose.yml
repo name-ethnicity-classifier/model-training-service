@@ -34,7 +34,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db-seed/init.sql:/docker-entrypoint-initdb.d/00-init.sql
+      - ./db-seed/dummy_models.sql:/docker-entrypoint-initdb.d/10-dummy_models.sql
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
 
