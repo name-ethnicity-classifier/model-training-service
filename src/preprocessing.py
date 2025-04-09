@@ -1,9 +1,6 @@
-import json
-import os
 import random
 import re
 import string
-import pickle
 import unicodedata
 from dotenv import load_dotenv
 from s3 import S3Handler
@@ -102,8 +99,8 @@ def get_selected_groups(groupings: list[str], dataset: dict, available_classes: 
 
 
 def validate_classes(available_classes: list[str], chosen_classes: list[str]):
-    if len(chosen_classes) < 2:
-        raise ValueError(f"At least two clases must be selected (or onc class and 'else')")
+    if len(set(chosen_classes)) < 2:
+        raise ValueError(f"At least two clases must be selected (or one class and 'else').")
 
     invalid_classes = [class_ for class_ in chosen_classes if not class_ in available_classes]
     if len(invalid_classes) > 0:

@@ -6,8 +6,6 @@ from logger import logger
 
 
 def create_db_connection() -> sqlalchemy.Connection:
-    load_dotenv()
-
     db_host = os.environ.get("POSTGRES_HOST")
     db_port = os.environ.get("POSTGRES_PORT")
     db_name = os.environ.get("POSTGRES_DB")
