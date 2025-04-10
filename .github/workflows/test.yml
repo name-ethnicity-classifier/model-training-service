@@ -12,6 +12,25 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      MINIO_USER: minio-user
+      MINIO_PASSWORD: minio-password
+      MINIO_HOST: http://127.0.0.1
+      MINIO_PORT: 9000
+      MINIO_UI_PORT: 9001
+      MINIO_ACCESS_KEY_ID: minio-key-id
+      MINIO_SECRET_ACCESS_KEY: minio-secret-key
+      MODEL_S3_BUCKET: models
+      BASE_DATA_S3_BUCKET: base-data
+      BASE_MODEL: conv_lstm_v1
+      POSTGRES_HOST: localhost
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pwd123
+      POSTGRES_DB: n2e-db
+      POSTGRES_PORT: 5432
+      ADMINER_PORT: 6060
+      ENVIRONMENT: dev
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
