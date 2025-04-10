@@ -47,8 +47,8 @@ def create_dataloader(dataset: list[ProcessedName], test_size: float=0.01, val_s
     :return torch.Dataloader: train-, test- and val-dataloader
     """
     
-    test_size = int(np.round(len(dataset)*test_size))
-    val_size = int(np.round(len(dataset)*val_size))
+    test_size = int(np.ceil(len(dataset)*test_size))
+    val_size = int(np.ceil(len(dataset)*val_size))
 
     train_set, test_set, validation_set = dataset[(test_size+val_size):], dataset[:test_size], dataset[test_size:(test_size+val_size)]
 

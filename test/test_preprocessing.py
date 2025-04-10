@@ -1,59 +1,57 @@
 import os
+import re
 from unittest.mock import patch
 import pytest
 import json
 from preprocessing import preprocess_nationalities, preprocess_groups, normalize_name, numerize_name, balance_classes
 
 
+# Names per class used to create a dummy dataset
+NAMES_PER_CLASS = 32
 
-def load_raw_dataset():
-    with open(f"./test/mock/raw_dataset.json", "rb") as o:
-        return json.load(o)
 
-def load_classes():
+@pytest.fixture(scope="function", autouse=True)
+def mock_dataset():
     with open(f"./test/mock/classes.json", "r") as f:
-        return json.load(f)
+        classes = json.load(f)
 
-def load_mock_dataset():
-    return load_raw_dataset(), load_classes()
-
-
-@pytest.fixture
-def mock_loading_dataset():
-    with patch("preprocessing.load_dataset", load_mock_dataset):
+    raw_dataset = {}
+    for nationality in classes["nationalities"]:
+        raw_dataset[nationality] = [f"{nationality}-name {idx}" for idx in range(NAMES_PER_CLASS)]
+        
+    with patch("preprocessing.load_dataset") as mock_func:
+        mock_func.return_value = (raw_dataset, classes)
         yield
 
 
 @pytest.mark.it("should create nationality dataset")
-def test_create_dataset(mock_loading_dataset):
+def test_create_dataset():
     selected_classes = ["german", "greek", "vietnamese", "indonesian", "columbian"]
     dataset = preprocess_nationalities(selected_classes)
 
-    names_per_class = 5
-
-    assert len(dataset) == len(selected_classes) * names_per_class
+    assert len(dataset) == len(selected_classes) * NAMES_PER_CLASS
     assert isinstance(dataset[0][0], int)      # class index
     assert isinstance(dataset[0][1], list)     # numerized name
 
 
 @pytest.mark.it("should create nationality-group dataset")
-def test_create_grouped_dataset(mock_loading_dataset):
+def test_create_grouped_dataset():
     selected_classes = ["european", "asian", "southAmerican"]
     dataset = preprocess_groups(selected_classes)
     
-    names_per_class = 5 * 2
+    names_per_group = NAMES_PER_CLASS * 2       # southAmerican consists of two nationalities
 
-    assert len(dataset) == len(selected_classes) * names_per_class
+    assert len(dataset) == len(selected_classes) * names_per_group
     assert isinstance(dataset[0][0], int)      # class index
     assert isinstance(dataset[0][1], list)     # numerized name
 
 
 @pytest.mark.it("should fail to create dataset with one class")
-def test_create_grouped_dataset(mock_loading_dataset):
+def test_single_nationality():
     selected_classes = ["german", "german"]
-    dataset = preprocess_nationalities(selected_classes)
     
-    assert len(dataset) == 5
+    with pytest.raises(ValueError, match=re.escape("At least two clases must be selected (or one class and 'else').")):
+        preprocess_nationalities(selected_classes)
 
 
 @pytest.mark.it("should normalize name to latin remove prefixes")

@@ -1,0 +1,48 @@
+name: Build and Release
+
+on:
+  workflow_run:
+    workflows: ["test"]
+    branches: [main]
+    types: 
+      - completed
+
+jobs:
+  image-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: name-ethnicity-classifier
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate version based on date and timestamp
+        id: version
+        run: |
+          VERSION=$(date +'%d-%m-%Y-%s')
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Push image to GitHub Container Registry
+        run: |
+          IMAGE_NAME=ghcr.io/name-ethnicity-classifier/n2e-model-training-service
+          docker build -t $IMAGE_NAME:$VERSION -t $IMAGE_NAME:latest .
+          
+          docker push $IMAGE_NAME:$VERSION
+          docker push $IMAGE_NAME:latest
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: 🎉 N2E Model Training Service ${{ env.VERSION }}
+          draft: false
+          prerelease: false

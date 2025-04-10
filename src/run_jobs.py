@@ -90,6 +90,7 @@ def main():
 
     if not untrained_model_rows or len(untrained_model_rows) == 0:
         logger.info(f"No models to train. Exiting.")
+        db_connection.close()
         return
 
     for idx, row in enumerate(untrained_model_rows):
@@ -101,6 +102,8 @@ def main():
         update_trained_model(db_connection, untrained_model.id, accuracy, f1_scores)
 
     logger.info("Model-training service exiting.")
+    
+    db_connection.close()
 
 
 if __name__ == "__main__":
