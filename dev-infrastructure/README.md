@@ -22,3 +22,6 @@ All contents of this folder are not included in the Git repository and must be r
 
 ### 4. minio-init.sh
 This script is being used by the ``minio-init`` container which creates the ``models`` and ``base-data`` buckets and copies the contents from ``./base-data/`` into the respective bucket.
+
+### 5. infra.yml
+This docker-compose is basically the same as docker-compose.yml but it also includes the model-training-service as well. Can be used to test the model-training-service in a container as it was in production.
