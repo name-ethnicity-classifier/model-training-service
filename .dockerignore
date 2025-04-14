@@ -1,0 +1,12 @@
+.github
+.pytest_cache
+**/__pycache__/
+.vscode
+test
+dev-infrastructure/
+.env
+.example.env
+.gitignore
+pytest.ini
+README.md
+start-dev-infra.sh

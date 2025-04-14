@@ -10,7 +10,7 @@ load_dotenv()
 class Environment(Enum):
     PROD = "prod"
     DEV = "dev"
-    
+
 
 @dataclass
 class Config:

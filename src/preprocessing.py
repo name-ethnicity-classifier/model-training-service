@@ -20,7 +20,7 @@ def load_dataset() -> dict:
     # shorten dataset to speed up during development
     if config.environment == Environment.DEV:
         raw_dataset = {k: v[:1000] for k, v in raw_dataset.items()}
-
+    
     nationalities = S3Handler.get(config.base_data_bucket, "nationalities.json")
 
     return raw_dataset, nationalities
