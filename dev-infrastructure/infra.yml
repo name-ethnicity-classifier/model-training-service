@@ -22,6 +22,7 @@ services:
       POSTGRES_PASSWORD: pwd123
       POSTGRES_DB: n2e-db
       POSTGRES_PORT: 5432
+      CRON_RULE: "0 */4 * * *"
       ENVIRONMENT: prod
     depends_on:
       - minio-init

@@ -13,6 +13,8 @@ from config import config
 from training.train import TrainSetup
 from schemas import ProcessedName
 from logger import logger
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 
 def get_untrained_models(db_connection: sqlalchemy.Connection):
@@ -106,5 +108,12 @@ def main():
     db_connection.close()
 
 
+
 if __name__ == "__main__":
-    main()
+    scheduler = BlockingScheduler()
+    
+    @scheduler.scheduled_job(CronTrigger.from_crontab(config.cron_rule))
+    def cron_job():
+        main()
+        
+    scheduler.start()
