@@ -21,7 +21,7 @@ class Config:
     minio_password: str = os.getenv("MINIO_PASSWORD")
     minio_host: str = os.getenv("MINIO_HOST")
     minio_port: str = os.getenv("MINIO_PORT")
+    cron_rule: str = os.getenv("CRON_RULE")
     environment: str = Environment(os.getenv("ENVIRONMENT"))
-
 
 config = Config()
