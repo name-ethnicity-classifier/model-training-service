@@ -83,8 +83,6 @@ def run_model_pipeline(untrained_model: UntrainedModel) -> tuple[float, list[flo
     return result_metrics.accuracy, result_metrics.scores.f1
 
 
-scheduler = BlockingScheduler()
-@scheduler.scheduled_job(CronTrigger.from_crontab(config.cron_rule))
 @error_handler
 def main():
     logger.info("Model-training service envoked.")
@@ -112,4 +110,10 @@ def main():
 
 
 if __name__ == "__main__":
+    scheduler = BlockingScheduler()
+    
+    @scheduler.scheduled_job(CronTrigger.from_crontab(config.cron_rule))
+    def cron_job():
+        main()
+        
     scheduler.start()
