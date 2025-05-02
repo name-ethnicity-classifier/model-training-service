@@ -1,6 +1,5 @@
 import json
 import os
-from sqlalchemy.exc import OperationalError
 import time
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
@@ -53,7 +52,7 @@ def db_connection():
     yield connection
     connection.close()
 
-    
+
 @pytest.fixture(scope="function")
 def db_session(db_connection):
     SessionLocal = sessionmaker(bind=db_connection)

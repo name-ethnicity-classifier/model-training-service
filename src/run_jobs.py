@@ -13,6 +13,8 @@ from config import config
 from training.train import TrainSetup
 from schemas import ProcessedName
 from logger import logger
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 
 def get_untrained_models(db_connection: sqlalchemy.Connection):
@@ -81,36 +83,33 @@ def run_model_pipeline(untrained_model: UntrainedModel) -> tuple[float, list[flo
     return result_metrics.accuracy, result_metrics.scores.f1
 
 
+scheduler = BlockingScheduler()
+@scheduler.scheduled_job(CronTrigger.from_crontab(config.cron_rule))
+@error_handler
+def main():
+    logger.info("Model-training service envoked.")
+    db_connection = create_db_connection()
+    
+    untrained_model_rows = get_untrained_models(db_connection)
+
+    if not untrained_model_rows or len(untrained_model_rows) == 0:
+        logger.info(f"No models to train. Exiting.")
+        db_connection.close()
+        return
+
+    for idx, row in enumerate(untrained_model_rows):
+        logger.info("")
+        logger.info(f"Running pipeline for model with id {row[0]} {idx + 1}/{len(untrained_model_rows)}.")
+
+        untrained_model = UntrainedModel(id=row[0], classes=row[1], is_grouped=row[2])
+        accuracy, f1_scores = run_model_pipeline(untrained_model)
+        update_trained_model(db_connection, untrained_model.id, accuracy, f1_scores)
+
+    logger.info("Model-training service exiting.")
+    
+    db_connection.close()
+
+
 
 if __name__ == "__main__":
-    from apscheduler.schedulers.blocking import BlockingScheduler
-    from apscheduler.triggers.cron import CronTrigger
-
-    scheduler = BlockingScheduler()
-
-    @scheduler.scheduled_job(CronTrigger.from_crontab(config.cron_rule))
-    @error_handler
-    def main():
-        logger.info("Model-training service envoked.")
-        db_connection = create_db_connection()
-        
-        untrained_model_rows = get_untrained_models(db_connection)
-
-        if not untrained_model_rows or len(untrained_model_rows) == 0:
-            logger.info(f"No models to train. Exiting.")
-            db_connection.close()
-            return
-
-        for idx, row in enumerate(untrained_model_rows):
-            logger.info("")
-            logger.info(f"Running pipeline for model with id {row[0]} {idx + 1}/{len(untrained_model_rows)}.")
-
-            untrained_model = UntrainedModel(id=row[0], classes=row[1], is_grouped=row[2])
-            accuracy, f1_scores = run_model_pipeline(untrained_model)
-            update_trained_model(db_connection, untrained_model.id, accuracy, f1_scores)
-
-        logger.info("Model-training service exiting.")
-        
-        db_connection.close()
-        
     scheduler.start()
