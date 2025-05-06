@@ -160,7 +160,7 @@ def preprocess_groups(classes: list[str]) -> list[ProcessedName]:
 
 
 def create_dataset(model: UntrainedModel):
-    classes = list(set(model.classes))
+    classes = list(model.classes)
     if model.is_grouped:
         dataset = preprocess_groups(classes)
     else:
